@@ -1,4 +1,4 @@
-package io.github.techtastic.ocforth.forth.words.oc;
+package io.github.techtastic.ocforth.forth.words;
 
 import io.github.techtastic.ocforth.forth.ForthVM;
 import li.cil.oc.api.machine.Machine;

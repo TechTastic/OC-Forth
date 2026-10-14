@@ -1,6 +1,8 @@
 package io.github.techtastic.ocforth.forth;
 
 import io.github.techtastic.ocforth.forth.words.LiteralWord;
+import io.github.techtastic.ocforth.forth.words.comment.CommentEndWord;
+import io.github.techtastic.ocforth.forth.words.comment.CommentStartWord;
 import io.github.techtastic.ocforth.forth.words.compile.DOCOLEndWord;
 import io.github.techtastic.ocforth.forth.words.compile.DOCOLWord;
 import io.github.techtastic.ocforth.forth.words.logic.*;
@@ -14,27 +16,32 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 import java.util.concurrent.LinkedBlockingDeque;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 public class ForthVM {
     public static final Map<String, Word> BASE_DICTIONARY;
 
-    private final LinkedBlockingDeque<Long> data;
+    private final int capacity;
+
+    private final ArrayDeque<Long> data;
     private final HashMap<String, Word> dictionary = new HashMap<>();
 
     private State state = State.INTERPRET;
     private String definition;
-    private List<Word> body;
+    private List<String> body;
+
+    private State previousState = State.COMPILE;
 
     public ForthVM(int capacity) {
-        this.data = new LinkedBlockingDeque<>(capacity);
+        this.capacity = capacity;
+        this.data = new ArrayDeque<>(capacity);
     }
 
     public void push(long x) {
-        try {
-            this.data.push(x);
-        } catch (IllegalStateException ignored) {
+        if (this.data.size() >= this.capacity)
             throw new RuntimeException("stack overflow");
-        }
+        this.data.push(x);
     }
 
     public long pop() {
@@ -77,11 +84,19 @@ public class ForthVM {
         this.state = state;
     }
 
+    public State getPreviousState() {
+        return this.previousState;
+    }
+
+    public void setPreviousState(State state) {
+        this.previousState = state;
+    }
+
     public String getCurrentDefinition() {
         return this.definition;
     }
 
-    public List<Word> getCurrentDefinitionBody() {
+    public List<String> getCurrentDefinitionBody() {
         return this.body;
     }
 
@@ -110,14 +125,19 @@ public class ForthVM {
             this.body = new ArrayList<>();
 
         if (this.getWord(token) instanceof Word word) {
-            if (word instanceof DOCOLEndWord end) {
-                end.execute(this);
-                return;
+            switch (word) {
+                case DOCOLWord start -> {}
+                case DOCOLEndWord end -> end.execute(this);
+                case CommentStartWord start -> start.execute(this);
+                default -> {
+                    this.body.add(token);
+                    if (word.immediate())
+                        word.execute(this);
+                }
             }
-            this.body.add(word);
         } else
             try {
-                this.body.add(new LiteralWord(Long.parseLong(token)));
+                this.body.add(token);
             } catch (NumberFormatException ignored) {
                 this.clearCurrentDefinition();
                 this.setState(State.INTERPRET);
@@ -131,9 +151,12 @@ public class ForthVM {
 
         String[] tokens = script.trim().split("\\s+");
         for (String token : tokens) {
-            switch (state) {
+            switch (this.state) {
                 case INTERPRET -> this.interpret(token.toLowerCase(Locale.ROOT));
                 case COMPILE -> this.compile(token.toLowerCase(Locale.ROOT));
+                case COMMENT -> {
+                    if (getWord(token.toLowerCase(Locale.ROOT)) instanceof CommentEndWord word) word.execute(this);
+                }
             }
         }
     }
@@ -156,11 +179,16 @@ public class ForthVM {
     @FunctionalInterface
     public interface Word {
         void execute(ForthVM vm);
+
+        default boolean immediate() {
+            return false;
+        }
     }
 
     public enum State {
         INTERPRET,
-        COMPILE
+        COMPILE,
+        COMMENT
     }
 
     static {
@@ -185,6 +213,9 @@ public class ForthVM {
         words.put("swap", new SwapWord());
         words.put("drop", new DropWord());
         words.put("over", new OverWord());
+
+        words.put("(", new CommentStartWord());
+        words.put(")", new CommentEndWord());
 
         words.put(":", new DOCOLWord());
         words.put(";", new DOCOLEndWord());

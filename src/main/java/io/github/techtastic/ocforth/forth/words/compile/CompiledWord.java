@@ -5,16 +5,16 @@ import io.github.techtastic.ocforth.forth.ForthVM;
 import java.util.List;
 
 public class CompiledWord implements ForthVM.Word {
-    private final List<ForthVM.Word> body;
+    private final List<String> body;
 
-    public CompiledWord(List<ForthVM.Word> body) {
+    public CompiledWord(List<String> body) {
         this.body = body;
     }
 
     @Override
     public void execute(ForthVM vm) {
-        for (ForthVM.Word word : this.body) {
-            word.execute(vm);
+        for (String word : this.body) {
+            vm.execute(word);
         }
     }
 }

@@ -7,6 +7,7 @@ public class DOCOLEndWord implements ForthVM.Word {
     public void execute(ForthVM vm) {
         vm.addWord(vm.getCurrentDefinition(), new CompiledWord(vm.getCurrentDefinitionBody()));
         vm.clearCurrentDefinition();
+        vm.setPreviousState(vm.getState());
         vm.setState(ForthVM.State.INTERPRET);
     }
 }

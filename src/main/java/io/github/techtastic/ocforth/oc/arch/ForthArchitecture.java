@@ -1,6 +1,7 @@
 package io.github.techtastic.ocforth.oc.arch;
 
 import io.github.techtastic.ocforth.forth.ForthVM;
+import io.github.techtastic.ocforth.forth.words.oc.ByeWord;
 import li.cil.oc.api.Driver;
 import li.cil.oc.api.driver.item.Memory;
 import li.cil.oc.api.machine.Architecture;
@@ -64,7 +65,11 @@ public class ForthArchitecture implements Architecture {
     @Override
     public boolean initialize() {
         boolean hasMemory = this.recomputeMemory(this.machine.host().internalComponents());
-        this.file.addAll(Arrays.asList(this.loadFile("init.fs").trim().split("\\s+")));
+
+        this.vm.addWord("bye", new ByeWord(this.machine));
+
+        if (this.loadFile("init.fs") instanceof String script)
+            this.file.addAll(Arrays.asList(script.trim().split("\\s+")));
 
         return hasMemory && !this.file.isEmpty();
     }
